@@ -1,10 +1,66 @@
-app = "whatsapp-api"
+# fly.toml app configuration file generated for gamazap-api on 2023-10-20T23:58:06-03:00
+#
+# See https://fly.io/docs/reference/configuration/ for information about how to use this file.
+#
+
+app = "gamazap-api"
 primary_region = "gru"
 
 [http_service]
-  internal_port = 3000
-  force_https = true
-  auto_stop_machines = true
-  auto_start_machines = true
-  min_machines_running = 0
-  processes = ["app"]
+auto_start_machines = true
+auto_stop_machines = true
+force_https = true
+internal_port = 3000
+min_machines_running = 0
+processes = ["app"]
+[http_service.concurrency]
+hard_limit = 150
+soft_limit = 100
+type = "requests"
+
+[env]
+# ==================================
+# SECURITY CONFIGURATION
+# ==================================
+PROTECT_ROUTES = false
+TOKEN = "770a5aba-415b-11ee-be56-0242ac120002"
+
+# ==================================
+# APPLICATION CONFIGURATION
+# ==================================
+APP_URL = "https://gamazap-api.fly.dev"
+LOG_LEVEL = "silent"
+PORT = 3000
+RESTORE_SESSIONS_ON_START_UP = true
+# or silent
+
+# ==================================
+# BROWSER CONFIGURATION
+# ==================================
+CLIENT_BROWSER = "Chrome"
+CLIENT_PLATFORM = "Gama Zap"
+CLIENT_VERSION = "4.0.0"
+
+# ==================================
+# INSTANCE CONFIGURATION
+# ==================================
+INSTANCE_MAX_RETRY_QR = 3
+
+# ==================================
+# DATABASE CONFIGURATION
+# ==================================
+MONGODB_ENABLED = true
+MONGODB_URL = "mongodb+srv://whatsapp_api_user:1pAaGO6uBU2oV9wt@whatsappapi.9uypexd.mongodb.net/?retryWrites=true&w=majority"
+
+# ==================================
+# WEBHOOK CONFIGURATION
+# ==================================
+WEBHOOK_ALLOWED_EVENTS = "messages.upsert"
+WEBHOOK_BASE64 = false
+WEBHOOK_ENABLED = true
+WEBHOOK_URL = "https://painel.gamadelivery.app/api_gamazap.php?apiKey=770a5aba-415b-11ee-be56-0242ac120002"
+
+# ==================================
+# MESSAGE CONFIGURATION
+# ==================================
+MARK_MESSAGES_READ = false
