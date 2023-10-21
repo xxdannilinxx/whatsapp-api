@@ -8,5 +8,5 @@ yarn.lock
 sessiondata
 
 # IDEs
-.vscode/settings.json
+.vscode/
 .idea
