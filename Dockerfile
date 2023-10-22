@@ -8,6 +8,8 @@ RUN apk add git
 
 WORKDIR ${_WORKDIR}
 
+ENV TZ="America/Sao_Paulo"
+
 ADD . ${_WORKDIR}
 RUN yarn install
 
