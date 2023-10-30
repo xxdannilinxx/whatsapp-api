@@ -29,7 +29,8 @@ class Session {
                         const instance = new WhatsAppInstance(
                             key,
                             webhook,
-                            webhookUrl
+                            webhookUrl,
+                            false
                         )
                         await instance.init()
                         WhatsAppInstances[key] = instance

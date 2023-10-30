@@ -11,6 +11,7 @@ const path = require('path')
 const processButton = require('../helper/processbtn')
 const generateVC = require('../helper/genVc')
 const Chat = require('../models/chat.model')
+const Session = require('../models/session.model')
 const axios = require('axios')
 const config = require('../../config/config')
 const downloadMessage = require('../helper/downloadMsg')
@@ -39,22 +40,77 @@ class WhatsAppInstance {
         customWebhook: '',
     }
 
-    axiosInstance = axios.create({
-        baseURL: config.webhookUrl,
-    })
+    axiosInstance
 
-    constructor(key, allowWebhook, webhook) {
+    constructor(key, allowWebhook, webhook, init) {
+        this.webhook = webhook
         this.key = key ? key : uuidv4()
-        this.instance.customWebhook = this.webhook ? this.webhook : webhook
         this.allowWebhook = config.webhookEnabled
             ? config.webhookEnabled
             : allowWebhook
-        if (this.allowWebhook && this.instance.customWebhook !== null) {
-            this.allowWebhook = true
-            this.instance.customWebhook = webhook
-            this.axiosInstance = axios.create({
-                baseURL: webhook,
-            })
+
+        this.initWebhookUrl(init, webhook).then((webhookUrl) => {
+            // if exists in collectiom force use webhook
+            if (webhookUrl !== null) {
+                this.allowWebhook = true
+                this.instance.customWebhook = webhookUrl
+                this.axiosInstance = axios.create({
+                    baseURL: webhookUrl,
+                })
+            }
+        })
+    }
+
+    async initWebhookUrl(init) {
+        try {
+            const sessionModel = Session(this.key)
+            let result = await sessionModel.findOne({ key: this.key })
+
+            // remove old sessions for init session instance connection
+            if (init) {
+                await sessionModel.deleteOne({ key: this.key })
+
+                if (!this.webhook) {
+                    return null
+                }
+            }
+
+            // if not exists, create
+            if (!result) {
+                result = await sessionModel({
+                    key: this.key,
+                    webhookUrl: this.webhook,
+                }).save()
+
+                logger.info(
+                    `[${this.key}] webhook has been created to ${this.webhook}`
+                )
+
+                return result.webhookUrl
+            }
+
+            // if exists, update
+            if (this.webhook && this.webhook !== result.webhookUrl) {
+                const update = await sessionModel.updateOne(
+                    {
+                        key: this.key,
+                    },
+                    {
+                        webhookUrl: this.webhook,
+                    }
+                )
+
+                logger.info(
+                    `[${this.key}] webhook has been updated to ${this.webhook}`
+                )
+
+                result.webhookUrl = this.webhook
+            }
+
+            return result.webhookUrl
+        } catch (err) {
+            logger.error(err)
+            return this.webhook !== null ? this.webhook : undefined
         }
     }
 
@@ -190,8 +246,6 @@ class WhatsAppInstance {
 
         // on recive new chat
         sock?.ev.on('chats.upsert', (newChat) => {
-            //console.log('chats.upsert')
-            //console.log(newChat)
             const chats = newChat.map((chat) => {
                 return {
                     ...chat,
@@ -203,8 +257,6 @@ class WhatsAppInstance {
 
         // on chat change
         sock?.ev.on('chats.update', (changedChat) => {
-            //console.log('chats.update')
-            //console.log(changedChat)
             changedChat.map((chat) => {
                 const index = this.instance.chats.findIndex(
                     (pc) => pc.id === chat.id
@@ -219,8 +271,6 @@ class WhatsAppInstance {
 
         // on chat delete
         sock?.ev.on('chats.delete', (deletedChats) => {
-            //console.log('chats.delete')
-            //console.log(deletedChats)
             deletedChats.map((chat) => {
                 const index = this.instance.chats.findIndex(
                     (c) => c.id === chat
@@ -231,8 +281,6 @@ class WhatsAppInstance {
 
         // on new mssage
         sock?.ev.on('messages.upsert', async (m) => {
-            //console.log('messages.upsert')
-            //console.log(m)
             if (m.type === 'prepend')
                 this.instance.messages.unshift(...m.messages)
             if (m.type !== 'notify') return
@@ -305,10 +353,8 @@ class WhatsAppInstance {
             })
         })
 
-        sock?.ev.on('messages.update', async (messages) => {
-            //console.log('messages.update')
-            //console.dir(messages);
-        })
+        sock?.ev.on('messages.update', async (messages) => {})
+
         sock?.ws.on('CB:call', async (data) => {
             if (data.content) {
                 if (data.content.find((e) => e.tag === 'offer')) {
@@ -358,8 +404,6 @@ class WhatsAppInstance {
         })
 
         sock?.ev.on('groups.upsert', async (newChat) => {
-            //console.log('groups.upsert')
-            //console.log(newChat)
             this.createGroupByApp(newChat)
             if (
                 ['all', 'groups', 'groups.upsert'].some((e) =>
@@ -376,8 +420,6 @@ class WhatsAppInstance {
         })
 
         sock?.ev.on('groups.update', async (newChat) => {
-            //console.log('groups.update')
-            //console.log(newChat)
             this.updateGroupSubjectByApp(newChat)
             if (
                 ['all', 'groups', 'groups.update'].some((e) =>
@@ -394,8 +436,6 @@ class WhatsAppInstance {
         })
 
         sock?.ev.on('group-participants.update', async (newChat) => {
-            //console.log('group-participants.update')
-            //console.log(newChat)
             this.updateGroupParticipantsByApp(newChat)
             if (
                 [
@@ -418,6 +458,7 @@ class WhatsAppInstance {
     async deleteInstance(key) {
         try {
             await Chat.findOneAndDelete({ key: key })
+            await Session(key).findOneAndDelete({ key: key })
         } catch (e) {
             logger.error('Error updating document failed')
         }
@@ -591,7 +632,6 @@ class WhatsAppInstance {
             )
             return res
         } catch (e) {
-            //console.log(e)
             return {
                 error: true,
                 message: 'Unable to update profile picture',
@@ -792,7 +832,6 @@ class WhatsAppInstance {
     }
 
     async updateGroupSubjectByApp(newChat) {
-        //console.log(newChat)
         try {
             if (newChat[0] && newChat[0].subject) {
                 let Chats = await this.getChat()
@@ -807,7 +846,6 @@ class WhatsAppInstance {
     }
 
     async updateGroupParticipantsByApp(newChat) {
-        //console.log(newChat)
         try {
             if (newChat && newChat.id) {
                 let Chats = await this.getChat()
@@ -896,7 +934,6 @@ class WhatsAppInstance {
             )
             return res
         } catch (e) {
-            //console.log(e)
             return {
                 error: true,
                 message:
@@ -917,7 +954,6 @@ class WhatsAppInstance {
             )
             return res
         } catch (e) {
-            //console.log(e)
             return {
                 error: true,
                 message:
@@ -934,7 +970,6 @@ class WhatsAppInstance {
             )
             return res
         } catch (e) {
-            //console.log(e)
             return {
                 error: true,
                 message:
@@ -951,7 +986,6 @@ class WhatsAppInstance {
             )
             return res
         } catch (e) {
-            //console.log(e)
             return {
                 error: true,
                 message:

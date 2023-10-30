@@ -9,7 +9,7 @@ exports.init = async (req, res) => {
     const webhook = !req.query.webhook ? false : req.query.webhook
     const webhookUrl = !req.query.webhookUrl ? null : req.query.webhookUrl
     const appUrl = config.appUrl || req.protocol + '://' + req.headers.host
-    const instance = new WhatsAppInstance(key, webhook, webhookUrl)
+    const instance = new WhatsAppInstance(key, webhook, webhookUrl, true)
     const data = await instance.init()
     WhatsAppInstances[data.key] = instance
     res.json({
@@ -133,7 +133,7 @@ exports.list = async (req, res) => {
         WhatsAppInstances[key].getInstanceDetail(key)
     )
     let data = await Promise.all(instance)
-    
+
     return res.json({
         error: false,
         message: 'All instance listed',
