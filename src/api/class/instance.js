@@ -5,13 +5,10 @@ const {
     default: makeWASocket,
     DisconnectReason,
 } = require('@whiskeysockets/baileys')
-const { unlinkSync } = require('fs')
 const { v4: uuidv4 } = require('uuid')
-const path = require('path')
 const processButton = require('../helper/processbtn')
 const generateVC = require('../helper/genVc')
 const Chat = require('../models/chat.model')
-const Session = require('../models/session.model')
 const axios = require('axios')
 const config = require('../../config/config')
 const downloadMessage = require('../helper/downloadMsg')
@@ -63,70 +60,49 @@ class WhatsAppInstance {
 
     async initWebhookUrl(init) {
         try {
-            const sessionModel = Session(this.key)
-            let result = await sessionModel.findOne({ key: this.key })
-
-            // remove old sessions for init session instance connection
             if (init) {
-                await sessionModel.deleteOne({ key: this.key })
-
-                if (!this.webhook) {
-                    return undefined
-                }
+                await Chat.findOneAndDelete({ key: this.key })
             }
 
-            // if not exists, create
-            if (!result) {
-                if (!this.webhook) {
-                    return undefined
-                }
+            let result = await Chat.findOne({ key: this.key })
 
-                result = await sessionModel({
+            if (!this.webhook && !result) {
+                return undefined
+            }
+
+            if (!result) {
+                result = await Chat({
                     key: this.key,
                     webhookUrl: this.webhook,
                 }).save()
 
                 logger.info(
-                    `[${this.key}] webhook has been created to ${this.webhook}`
-                )
-
-                return result.webhookUrl
-            }
-
-            // if exists, update
-            if (this.webhook && this.webhook !== result.webhookUrl) {
-                const update = await sessionModel.updateOne(
-                    {
-                        key: this.key,
-                    },
-                    {
-                        webhookUrl: this.webhook,
-                    }
-                )
-
-                logger.info(
                     `[${this.key}] webhook has been updated to ${this.webhook}`
                 )
-
-                result.webhookUrl = this.webhook
             }
 
             return result.webhookUrl
         } catch (e) {
             logger.error(e)
-            return this.webhook !== null ? this.webhook : undefined
+            return this.webhook ? this.webhook : undefined
         }
     }
 
     async SendWebhook(type, body, key) {
         if (!this.allowWebhook) return
+
+        logger.info('Sending webhook post...')
+
         this.axiosInstance
             .post('', {
                 type,
                 body,
                 instanceKey: key,
             })
-            .catch(() => {})
+            .catch((e) => {
+                logger.error(e.message)
+                logger.error('Error to send webhook')
+            })
     }
 
     async init() {
@@ -289,7 +265,6 @@ class WhatsAppInstance {
                 this.instance.messages.unshift(...m.messages)
             if (m.type !== 'notify') return
 
-            // https://adiwajshing.github.io/Baileys/#reading-messages
             if (config.markMessagesRead) {
                 const unreadMessages = m.messages.map((msg) => {
                     return {
@@ -348,6 +323,7 @@ class WhatsAppInstance {
                             break
                     }
                 }
+
                 if (
                     ['all', 'messages', 'messages.upsert'].some((e) =>
                         config.webhookAllowedEvents.includes(e)
@@ -357,112 +333,20 @@ class WhatsAppInstance {
             })
         })
 
-        sock?.ev.on('messages.update', async (messages) => {})
+        sock?.ev.on('messages.update', async () => {})
 
-        sock?.ws.on('CB:call', async (data) => {
-            if (data.content) {
-                if (data.content.find((e) => e.tag === 'offer')) {
-                    const content = data.content.find((e) => e.tag === 'offer')
-                    if (
-                        ['all', 'call', 'CB:call', 'call:offer'].some((e) =>
-                            config.webhookAllowedEvents.includes(e)
-                        )
-                    )
-                        await this.SendWebhook(
-                            'call_offer',
-                            {
-                                id: content.attrs['call-id'],
-                                timestamp: parseInt(data.attrs.t),
-                                user: {
-                                    id: data.attrs.from,
-                                    platform: data.attrs.platform,
-                                    platform_version: data.attrs.version,
-                                },
-                            },
-                            this.key
-                        )
-                } else if (data.content.find((e) => e.tag === 'terminate')) {
-                    const content = data.content.find(
-                        (e) => e.tag === 'terminate'
-                    )
+        sock?.ws.on('CB:call', async () => {})
 
-                    if (
-                        ['all', 'call', 'call:terminate'].some((e) =>
-                            config.webhookAllowedEvents.includes(e)
-                        )
-                    )
-                        await this.SendWebhook(
-                            'call_terminate',
-                            {
-                                id: content.attrs['call-id'],
-                                user: {
-                                    id: data.attrs.from,
-                                },
-                                timestamp: parseInt(data.attrs.t),
-                                reason: data.content[0].attrs.reason,
-                            },
-                            this.key
-                        )
-                }
-            }
-        })
+        sock?.ev.on('groups.upsert', async () => {})
 
-        sock?.ev.on('groups.upsert', async (newChat) => {
-            this.createGroupByApp(newChat)
-            if (
-                ['all', 'groups', 'groups.upsert'].some((e) =>
-                    config.webhookAllowedEvents.includes(e)
-                )
-            )
-                await this.SendWebhook(
-                    'group_created',
-                    {
-                        data: newChat,
-                    },
-                    this.key
-                )
-        })
+        sock?.ev.on('groups.update', async () => {})
 
-        sock?.ev.on('groups.update', async (newChat) => {
-            this.updateGroupSubjectByApp(newChat)
-            if (
-                ['all', 'groups', 'groups.update'].some((e) =>
-                    config.webhookAllowedEvents.includes(e)
-                )
-            )
-                await this.SendWebhook(
-                    'group_updated',
-                    {
-                        data: newChat,
-                    },
-                    this.key
-                )
-        })
-
-        sock?.ev.on('group-participants.update', async (newChat) => {
-            this.updateGroupParticipantsByApp(newChat)
-            if (
-                [
-                    'all',
-                    'groups',
-                    'group_participants',
-                    'group-participants.update',
-                ].some((e) => config.webhookAllowedEvents.includes(e))
-            )
-                await this.SendWebhook(
-                    'group_participants_updated',
-                    {
-                        data: newChat,
-                    },
-                    this.key
-                )
-        })
+        sock?.ev.on('group-participants.update', async () => {})
     }
 
     async deleteInstance(key) {
         try {
             await Chat.findOneAndDelete({ key: key })
-            await Session(key).findOneAndDelete({ key: key })
         } catch (e) {
             logger.error(e)
             logger.error('Error updating document failed')

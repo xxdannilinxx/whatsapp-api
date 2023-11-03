@@ -58,8 +58,8 @@ const BufferJSON = {
 }
 
 module.exports = useMongoDBAuthState = async (collection) => {
-    const writeData = (data, id) => {
-        return collection.replaceOne(
+    const writeData = async (data, id) => {
+        return await collection.replaceOne(
             { _id: id },
             JSON.parse(JSON.stringify(data, BufferJSON.replacer)),
             { upsert: true }

@@ -9,6 +9,7 @@ const chatSchema = new mongoose.Schema({
     chat: {
         type: Array,
     },
+    webhookUrl: String,
 })
 
 const Chat = mongoose.model('Chat', chatSchema)
