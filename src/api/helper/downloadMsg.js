@@ -8,7 +8,7 @@ module.exports = async function downloadMessage(msg, msgType) {
             buffer = Buffer.concat([buffer, chunk])
         }
     } catch {
-        return console.log('error downloading file-message')
+        return console.error('error downloading file-message')
     }
     return buffer.toString('base64')
 }
