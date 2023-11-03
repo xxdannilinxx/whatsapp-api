@@ -59,6 +59,9 @@ const BufferJSON = {
 
 module.exports = useMongoDBAuthState = async (collection) => {
     const writeData = async (data, id) => {
+        if (Array.isArray(data)) {
+            data = data.shift()
+        }
         return await collection.replaceOne(
             { _id: id },
             JSON.parse(JSON.stringify(data, BufferJSON.replacer)),
@@ -114,8 +117,8 @@ module.exports = useMongoDBAuthState = async (collection) => {
                 },
             },
         },
-        saveCreds: () => {
-            return writeData(creds, 'creds')
+        saveCreds: async () => {
+            return await writeData(creds, 'creds')
         },
     }
 }

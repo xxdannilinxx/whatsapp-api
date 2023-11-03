@@ -108,7 +108,7 @@ class WhatsAppInstance {
     async init() {
         this.collection = mongoClient.db('whatsapp-api').collection(this.key)
         const { state, saveCreds } = await useMongoDBAuthState(this.collection)
-        this.authState = { state: state, saveCreds: saveCreds }
+        this.authState = { state: state, saveCreds: await saveCreds }
         this.socketConfig.auth = this.authState.state
         this.socketConfig.browser = Object.values(config.browser)
         this.instance.sock = makeWASocket(this.socketConfig)
@@ -281,6 +281,7 @@ class WhatsAppInstance {
             m.messages.map(async (msg) => {
                 if (!msg.message) return
 
+                let sendWebhook = false
                 const messageType = Object.keys(msg.message)[0]
                 if (
                     [
@@ -295,37 +296,59 @@ class WhatsAppInstance {
                     ...msg,
                 }
 
-                if (messageType === 'conversation') {
-                    webhookData['text'] = m
-                }
-                if (config.webhookBase64) {
-                    switch (messageType) {
-                        case 'imageMessage':
+                switch (messageType) {
+                    case 'conversation':
+                        webhookData['text'] = m
+
+                        const isGroup = m?.messages.filter(
+                            (message) => message.key?.participant
+                        )
+                        const isFromMe = m?.messages.filter(
+                            (message) => message.key?.fromMe === true
+                        )
+                        if (!isGroup.length && !isFromMe.length) {
+                            sendWebhook = true
+                        }
+
+                        break
+
+                    case 'imageMessage':
+                        sendWebhook = true
+
+                        if (config.webhookBase64) {
                             webhookData['msgContent'] = await downloadMessage(
                                 msg.message.imageMessage,
                                 'image'
                             )
-                            break
-                        case 'videoMessage':
+                        }
+
+                        break
+                    case 'videoMessage':
+                        if (config.webhookBase64) {
                             webhookData['msgContent'] = await downloadMessage(
                                 msg.message.videoMessage,
                                 'video'
                             )
-                            break
-                        case 'audioMessage':
+                        }
+
+                        break
+                    case 'audioMessage':
+                        if (config.webhookBase64) {
                             webhookData['msgContent'] = await downloadMessage(
                                 msg.message.audioMessage,
                                 'audio'
                             )
-                            break
-                        default:
-                            webhookData['msgContent'] = ''
-                            break
-                    }
+                        }
+
+                        break
+                    default:
+                        webhookData['msgContent'] = ''
+                        break
                 }
 
                 if (
-                    ['all', 'messages', 'messages.upsert'].some((e) =>
+                    sendWebhook &&
+                    [('all', 'messages', 'messages.upsert')].some((e) =>
                         config.webhookAllowedEvents.includes(e)
                     )
                 )
