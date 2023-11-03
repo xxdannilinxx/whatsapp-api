@@ -12,7 +12,7 @@ const connectToCluster = require('./api/helper/connectMongoClient')
 let server
 
 if (config.mongoose.enabled) {
-    mongoose.set('strictQuery', true);
+    mongoose.set('strictQuery', true)
     mongoose.connect(config.mongoose.url, config.mongoose.options).then(() => {
         logger.info('Connected to MongoDB')
     })
@@ -31,9 +31,8 @@ server = app.listen(config.port, async () => {
 
 const exitHandler = () => {
     if (server) {
-        server.close(() => {
-            logger.info('Server closed')
-            process.exit(1)
+        server.close((err) => {
+            process.exit(err ? 1 : 0)
         })
     } else {
         process.exit(1)
@@ -49,10 +48,16 @@ process.on('uncaughtException', unexpectedErrorHandler)
 process.on('unhandledRejection', unexpectedErrorHandler)
 
 process.on('SIGTERM', () => {
-    logger.info('SIGTERM received')
+    logger.error('SIGTERM received')
     if (server) {
-        server.close()
+        server.close((err) => {
+            process.exit(err ? 1 : 0)
+        })
     }
+})
+
+process.on('exit', function (code) {
+    return logger.error('Server closed with code', code)
 })
 
 module.exports = server

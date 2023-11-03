@@ -37,7 +37,7 @@ class WhatsAppInstance {
         qr: '',
         messages: [],
         qrRetry: 0,
-        customWebhook: '',
+        customWebhook: undefined,
     }
 
     axiosInstance
@@ -49,9 +49,9 @@ class WhatsAppInstance {
             ? config.webhookEnabled
             : allowWebhook
 
-        this.initWebhookUrl(init, webhook).then((webhookUrl) => {
+        this.initWebhookUrl(init).then((webhookUrl) => {
             // if exists in collectiom force use webhook
-            if (webhookUrl !== null) {
+            if (webhookUrl) {
                 this.allowWebhook = true
                 this.instance.customWebhook = webhookUrl
                 this.axiosInstance = axios.create({
@@ -71,12 +71,16 @@ class WhatsAppInstance {
                 await sessionModel.deleteOne({ key: this.key })
 
                 if (!this.webhook) {
-                    return null
+                    return undefined
                 }
             }
 
             // if not exists, create
             if (!result) {
+                if (!this.webhook) {
+                    return undefined
+                }
+
                 result = await sessionModel({
                     key: this.key,
                     webhookUrl: this.webhook,
@@ -108,8 +112,8 @@ class WhatsAppInstance {
             }
 
             return result.webhookUrl
-        } catch (err) {
-            logger.error(err)
+        } catch (e) {
+            logger.error(e)
             return this.webhook !== null ? this.webhook : undefined
         }
     }
@@ -460,6 +464,7 @@ class WhatsAppInstance {
             await Chat.findOneAndDelete({ key: key })
             await Session(key).findOneAndDelete({ key: key })
         } catch (e) {
+            logger.error(e)
             logger.error('Error updating document failed')
         }
     }
@@ -920,6 +925,7 @@ class WhatsAppInstance {
                 await this.instance.sock?.groupFetchAllParticipating()
             return result
         } catch (e) {
+            logger.error(e)
             logger.error('Error group fetch all participating failed')
         }
     }
@@ -999,6 +1005,7 @@ class WhatsAppInstance {
         try {
             await Chat.updateOne({ key: this.key }, { chat: object })
         } catch (e) {
+            logger.error(e)
             logger.error('Error updating document failed')
         }
     }
@@ -1013,6 +1020,7 @@ class WhatsAppInstance {
             const res = await this.instance.sock?.readMessages([key])
             return res
         } catch (e) {
+            logger.error(e)
             logger.error('Error read message failed')
         }
     }
@@ -1031,6 +1039,7 @@ class WhatsAppInstance {
             )
             return res
         } catch (e) {
+            logger.error(e)
             logger.error('Error react message failed')
         }
     }
