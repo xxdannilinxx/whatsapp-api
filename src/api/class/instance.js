@@ -60,25 +60,17 @@ class WhatsAppInstance {
 
     async initWebhookUrl(init) {
         try {
+            // if initialize
             if (init) {
                 await Chat.findOneAndDelete({ key: this.key })
+                return this.webhook
             }
 
+            // if restore
             let result = await Chat.findOne({ key: this.key })
 
-            if (!this.webhook && !result) {
-                return undefined
-            }
-
             if (!result) {
-                result = await Chat({
-                    key: this.key,
-                    webhookUrl: this.webhook,
-                }).save()
-
-                logger.info(
-                    `[${this.key}] webhook has been updated to ${this.webhook}`
-                )
+                return undefined
             }
 
             return result.webhookUrl
@@ -162,7 +154,10 @@ class WhatsAppInstance {
                         key: this.key,
                     }).exec()
                     if (!alreadyThere) {
-                        const saveChat = new Chat({ key: this.key })
+                        const saveChat = new Chat({
+                            key: this.key,
+                            webhookUrl: this.webhook,
+                        })
                         await saveChat.save()
                     }
                 }
@@ -370,6 +365,7 @@ class WhatsAppInstance {
     async deleteInstance(key) {
         try {
             await Chat.findOneAndDelete({ key: key })
+            await this.collection.drop()
         } catch (e) {
             logger.error(e)
             logger.error('Error updating document failed')
