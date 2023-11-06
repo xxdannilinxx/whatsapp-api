@@ -367,12 +367,15 @@ class WhatsAppInstance {
             await Chat.findOneAndDelete({ key: key })
 
             const db = mongoClient.db('whatsapp-api')
-            if (db.listCollections().toArray().includes(this.key)) {
+            const collections = await db.listCollections().toArray()
+
+            if (collections.includes(this.key)) {
                 await db.collection(this.key).drop()
             }
         } catch (e) {
             logger.error(e)
             logger.error('Error updating document failed')
+            throw e
         }
     }
 
