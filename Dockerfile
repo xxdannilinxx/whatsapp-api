@@ -1,4 +1,4 @@
-FROM node:19-alpine
+FROM node:16-slim
 
 ARG _WORKDIR=/home/node/app
 ARG PORT=3000

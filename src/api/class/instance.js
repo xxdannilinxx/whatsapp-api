@@ -102,6 +102,7 @@ class WhatsAppInstance {
         const { state, saveCreds } = await useMongoDBAuthState(this.collection)
         this.authState = { state: state, saveCreds: await saveCreds }
         this.socketConfig.auth = this.authState.state
+        config.browser.platform = `${config.browser.platform} (${this.key})`
         this.socketConfig.browser = Object.values(config.browser)
         this.instance.sock = makeWASocket(this.socketConfig)
         this.setHandler()
@@ -127,7 +128,7 @@ class WhatsAppInstance {
                 ) {
                     await this.init()
                 } else {
-                    await this.collection.drop().then((r) => {
+                    await this.collection.drop().then((r, x) => {
                         logger.info('STATE: Droped collection')
                     })
                     this.instance.online = false
@@ -365,13 +366,6 @@ class WhatsAppInstance {
     async deleteInstance(key) {
         try {
             await Chat.findOneAndDelete({ key: key })
-
-            const db = mongoClient.db('whatsapp-api')
-            const collections = await db.listCollections().toArray()
-
-            if (collections.includes(this.key)) {
-                await db.collection(this.key).drop()
-            }
         } catch (e) {
             logger.error(e)
             logger.error('Error updating document failed')
