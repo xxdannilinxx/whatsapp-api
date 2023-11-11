@@ -102,7 +102,6 @@ class WhatsAppInstance {
         const { state, saveCreds } = await useMongoDBAuthState(this.collection)
         this.authState = { state: state, saveCreds: await saveCreds }
         this.socketConfig.auth = this.authState.state
-        config.browser.platform = `${config.browser.platform} (${this.key})`
         this.socketConfig.browser = Object.values(config.browser)
         this.instance.sock = makeWASocket(this.socketConfig)
         this.setHandler()
