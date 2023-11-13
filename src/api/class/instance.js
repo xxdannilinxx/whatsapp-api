@@ -293,17 +293,9 @@ class WhatsAppInstance {
 
                 switch (messageType) {
                     case 'conversation':
-                        webhookData['text'] = m
+                        sendWebhook = true
 
-                        const isGroup = m?.messages.filter(
-                            (message) => message.key?.participant
-                        )
-                        const isFromMe = m?.messages.filter(
-                            (message) => message.key?.fromMe === true
-                        )
-                        if (!isGroup.length && !isFromMe.length) {
-                            sendWebhook = true
-                        }
+                        webhookData['text'] = m
 
                         break
 
@@ -339,6 +331,16 @@ class WhatsAppInstance {
                     default:
                         webhookData['msgContent'] = ''
                         break
+                }
+
+                const isGroup = m?.messages.filter(
+                    (message) => message.key?.participant
+                )
+                const isFromMe = m?.messages.filter(
+                    (message) => message.key?.fromMe === true
+                )
+                if (isGroup.length || isFromMe.length) {
+                    sendWebhook = false
                 }
 
                 if (
