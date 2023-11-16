@@ -10,6 +10,7 @@ const processButton = require('../helper/processbtn')
 const generateVC = require('../helper/genVc')
 const Chat = require('../models/chat.model')
 const axios = require('axios')
+const axiosRetry = require('axios-retry')
 const config = require('../../config/config')
 const downloadMessage = require('../helper/downloadMsg')
 const logger = require('pino')()
@@ -53,6 +54,7 @@ class WhatsAppInstance {
                 this.instance.customWebhook = webhookUrl
                 this.axiosInstance = axios.create({
                     baseURL: webhookUrl,
+                    timeout: 10000,
                 })
             }
         })
@@ -85,6 +87,15 @@ class WhatsAppInstance {
 
         logger.info('Sending webhook post...')
 
+        axiosRetry(this.axiosInstance, {
+            retries: 3,
+            retryDelay: (retryCount) => {
+                logger.error(
+                    `Error to send webhook, retry attempt: ${retryCount}`
+                )
+                return retryCount * 30000
+            },
+        })
         this.axiosInstance
             .post('', {
                 type,
