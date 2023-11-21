@@ -39,6 +39,7 @@ class WhatsAppInstance {
     }
 
     axiosInstance
+    timeoutWebhook
 
     constructor(key, allowWebhook, webhook, init) {
         this.webhook = webhook
@@ -55,6 +56,18 @@ class WhatsAppInstance {
                 this.axiosInstance = axios.create({
                     baseURL: webhookUrl,
                     timeout: 10000,
+                })
+                axiosRetry(this.axiosInstance, {
+                    retries: 3,
+                    retryDelay: (retryCount) => {
+                        logger.error(
+                            `Error to send webhook, retry attempt: ${retryCount}`
+                        )
+                        return retryCount * 3000
+                    },
+                    retryCondition: (error) => {
+                        return error.response.status !== 200
+                    },
                 })
             }
         })
@@ -83,29 +96,26 @@ class WhatsAppInstance {
     }
 
     async SendWebhook(type, body, key) {
-        if (!this.allowWebhook) return
+        if (!this.allowWebhook) {
+            return
+        }
 
-        logger.info('Sending webhook post...')
+        clearTimeout(this.timeoutWebhook)
 
-        axiosRetry(this.axiosInstance, {
-            retries: 3,
-            retryDelay: (retryCount) => {
-                logger.error(
-                    `Error to send webhook, retry attempt: ${retryCount}`
-                )
-                return retryCount * 30000
-            },
-        })
-        this.axiosInstance
-            .post('', {
-                type,
-                body,
-                instanceKey: key,
-            })
-            .catch((e) => {
-                logger.error(e.message)
-                logger.error('Error to send webhook')
-            })
+        this.timeoutWebhook = setTimeout(() => {
+            this.axiosInstance
+                .post('', {
+                    type,
+                    body,
+                    instanceKey: key,
+                })
+                .then((_) => {
+                    logger.info('Sending webhook post with success...')
+                })
+                .catch((_) => {
+                    logger.error('Sending webhook post with error...')
+                })
+        }, 2000)
     }
 
     async init() {
