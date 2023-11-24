@@ -13,16 +13,16 @@ const axios = require('axios')
 const axiosRetry = require('axios-retry')
 const config = require('../../config/config')
 const downloadMessage = require('../helper/downloadMsg')
-const logger = require('pino')()
 const useMongoDBAuthState = require('../helper/mongoAuthState')
 
 class WhatsAppInstance {
+    logger = pino({
+        level: config.log.level,
+    })
     socketConfig = {
         defaultQueryTimeoutMs: undefined,
         printQRInTerminal: false,
-        logger: pino({
-            level: config.log.level,
-        }),
+        logger: false,
     }
     key = ''
     authState
@@ -39,7 +39,7 @@ class WhatsAppInstance {
     }
 
     axiosInstance
-    timeoutWebhook
+    timeoutWebhook = {}
 
     constructor(key, allowWebhook, webhook, init) {
         this.webhook = webhook
@@ -47,6 +47,11 @@ class WhatsAppInstance {
         this.allowWebhook = config.webhookEnabled
             ? config.webhookEnabled
             : allowWebhook
+
+        this.logger = this.logger.child({ instance: this.key })
+        this.socketConfig.logger = this.logger
+
+        this.timeoutWebhook[this.key] = null
 
         this.initWebhookUrl(init).then((webhookUrl) => {
             // if exists in collectiom force use webhook
@@ -60,7 +65,7 @@ class WhatsAppInstance {
                 axiosRetry(this.axiosInstance, {
                     retries: 3,
                     retryDelay: (retryCount) => {
-                        logger.error(
+                        this.logger.error(
                             `Error to send webhook, retry attempt: ${retryCount}`
                         )
                         return retryCount * 3000
@@ -90,7 +95,7 @@ class WhatsAppInstance {
 
             return result.webhookUrl
         } catch (e) {
-            logger.error(e)
+            this.logger.error(e)
             return this.webhook ? this.webhook : undefined
         }
     }
@@ -100,9 +105,9 @@ class WhatsAppInstance {
             return
         }
 
-        clearTimeout(this.timeoutWebhook)
+        clearTimeout(this.timeoutWebhook[key])
 
-        this.timeoutWebhook = setTimeout(() => {
+        this.timeoutWebhook[key] = setTimeout(() => {
             this.axiosInstance
                 .post('', {
                     type,
@@ -110,12 +115,12 @@ class WhatsAppInstance {
                     instanceKey: key,
                 })
                 .then((_) => {
-                    logger.info('Sending webhook post with success...')
+                    this.logger.info('Sending webhook post with success...')
                 })
                 .catch((_) => {
-                    logger.error('Sending webhook post with error...')
+                    this.logger.error('Sending webhook post with error...')
                 })
-        }, 2000)
+        }, 1500)
     }
 
     async init() {
@@ -149,7 +154,7 @@ class WhatsAppInstance {
                     await this.init()
                 } else {
                     await this.collection.drop().then((r, x) => {
-                        logger.info('STATE: Droped collection')
+                        this.logger.info('STATE: Droped collection')
                     })
                     this.instance.online = false
                 }
@@ -210,7 +215,7 @@ class WhatsAppInstance {
                         // remove all events
                         this.instance.sock.ev.removeAllListeners()
                         this.instance.qr = ' '
-                        logger.info('socket connection terminated')
+                        this.logger.info('socket connection terminated')
                     }
                 })
             }
@@ -389,8 +394,8 @@ class WhatsAppInstance {
         try {
             await Chat.findOneAndDelete({ key: key })
         } catch (e) {
-            logger.error(e)
-            logger.error('Error updating document failed')
+            this.logger.error(e)
+            this.logger.error('Error updating document failed')
             throw e
         }
     }
@@ -581,8 +586,8 @@ class WhatsAppInstance {
                 )
             return group
         } catch (e) {
-            logger.error(e)
-            logger.error('Error get group failed')
+            this.logger.error(e)
+            this.logger.error('Error get group failed')
         }
     }
 
@@ -619,8 +624,8 @@ class WhatsAppInstance {
                 await this.updateDb(Chats)
             }
         } catch (e) {
-            logger.error(e)
-            logger.error('Error updating groups failed')
+            this.logger.error(e)
+            this.logger.error('Error updating groups failed')
         }
     }
 
@@ -632,8 +637,8 @@ class WhatsAppInstance {
             )
             return group
         } catch (e) {
-            logger.error(e)
-            logger.error('Error create new group failed')
+            this.logger.error(e)
+            this.logger.error('Error create new group failed')
         }
     }
 
@@ -706,8 +711,8 @@ class WhatsAppInstance {
             if (!group) throw new Error('no group exists')
             return await this.instance.sock?.groupLeave(id)
         } catch (e) {
-            logger.error(e)
-            logger.error('Error leave group failed')
+            this.logger.error(e)
+            this.logger.error('Error leave group failed')
         }
     }
 
@@ -721,8 +726,8 @@ class WhatsAppInstance {
                 )
             return await this.instance.sock?.groupInviteCode(id)
         } catch (e) {
-            logger.error(e)
-            logger.error('Error get invite group failed')
+            this.logger.error(e)
+            this.logger.error('Error get invite group failed')
         }
     }
 
@@ -730,8 +735,8 @@ class WhatsAppInstance {
         try {
             return await this.instance.sock?.groupInviteCode(id)
         } catch (e) {
-            logger.error(e)
-            logger.error('Error get invite group failed')
+            this.logger.error(e)
+            this.logger.error('Error get invite group failed')
         }
     }
 
@@ -757,8 +762,8 @@ class WhatsAppInstance {
             Chats.push(group)
             await this.updateDb(Chats)
         } catch (e) {
-            logger.error(e)
-            logger.error('Error updating document failed')
+            this.logger.error(e)
+            this.logger.error('Error updating document failed')
         }
     }
 
@@ -771,8 +776,8 @@ class WhatsAppInstance {
                 await this.updateDb(Chats)
             }
         } catch (e) {
-            logger.error(e)
-            logger.error('Error updating document failed')
+            this.logger.error(e)
+            this.logger.error('Error updating document failed')
         }
     }
 
@@ -840,8 +845,8 @@ class WhatsAppInstance {
                 }
             }
         } catch (e) {
-            logger.error(e)
-            logger.error('Error updating document failed')
+            this.logger.error(e)
+            this.logger.error('Error updating document failed')
         }
     }
 
@@ -851,8 +856,8 @@ class WhatsAppInstance {
                 await this.instance.sock?.groupFetchAllParticipating()
             return result
         } catch (e) {
-            logger.error(e)
-            logger.error('Error group fetch all participating failed')
+            this.logger.error(e)
+            this.logger.error('Error group fetch all participating failed')
         }
     }
 
@@ -931,8 +936,8 @@ class WhatsAppInstance {
         try {
             await Chat.updateOne({ key: this.key }, { chat: object })
         } catch (e) {
-            logger.error(e)
-            logger.error('Error updating document failed')
+            this.logger.error(e)
+            this.logger.error('Error updating document failed')
         }
     }
 
@@ -946,8 +951,8 @@ class WhatsAppInstance {
             const res = await this.instance.sock?.readMessages([key])
             return res
         } catch (e) {
-            logger.error(e)
-            logger.error('Error read message failed')
+            this.logger.error(e)
+            this.logger.error('Error read message failed')
         }
     }
 
@@ -965,8 +970,8 @@ class WhatsAppInstance {
             )
             return res
         } catch (e) {
-            logger.error(e)
-            logger.error('Error react message failed')
+            this.logger.error(e)
+            this.logger.error('Error react message failed')
         }
     }
 }
