@@ -8,6 +8,7 @@ RUN apk add git
 
 WORKDIR ${_WORKDIR}
 
+ENV NODE_ENV="production"
 ENV TZ="America/Sao_Paulo"
 
 ADD . ${_WORKDIR}
