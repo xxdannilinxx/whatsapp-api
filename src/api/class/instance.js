@@ -326,9 +326,8 @@ class WhatsAppInstance {
                         break
 
                     case 'locationMessage':
+                    case 'liveLocationMessage':
                         sendWebhook = true
-
-                        webhookData['msgContent'] = ''
 
                         break
 
