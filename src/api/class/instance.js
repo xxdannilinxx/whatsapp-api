@@ -325,6 +325,13 @@ class WhatsAppInstance {
 
                         break
 
+                    case 'locationMessage':
+                        sendWebhook = true
+
+                        webhookData['msgContent'] = ''
+
+                        break
+
                     case 'imageMessage':
                         sendWebhook = true
 
@@ -354,6 +361,7 @@ class WhatsAppInstance {
                         }
 
                         break
+
                     default:
                         webhookData['msgContent'] = ''
                         break
