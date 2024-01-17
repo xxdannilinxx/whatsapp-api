@@ -325,6 +325,7 @@ class WhatsAppInstance {
 
                         break
 
+                    case 'extendedTextMessage':
                     case 'locationMessage':
                     case 'liveLocationMessage':
                         sendWebhook = true
