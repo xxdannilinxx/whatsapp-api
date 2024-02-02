@@ -142,6 +142,9 @@ exports.list = async (req, res) => {
     return res.json({
         error: false,
         message: 'All instance listed',
-        data: data,
+        data: {
+            total: data.length,
+            instances: data,
+        },
     })
 }
