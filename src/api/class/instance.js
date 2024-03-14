@@ -63,12 +63,12 @@ class WhatsAppInstance {
                     timeout: 10000,
                 })
                 axiosRetry(this.axiosInstance, {
-                    retries: 3,
+                    retries: 2,
                     retryDelay: (retryCount) => {
                         this.logger.error(
-                            `Error to send webhook, retry attempt: ${retryCount}`
+                            `Error to send webhook, retry attempt ${retryCount} in ` + new Date()
                         )
-                        return retryCount * 3000
+                        return retryCount * 6000
                     },
                     retryCondition: (error) => {
                         return error.response.status !== 200
@@ -105,6 +105,10 @@ class WhatsAppInstance {
             return
         }
 
+        if (!this.axiosInstance) {
+            return
+        }
+
         clearTimeout(this.timeoutWebhook[key])
 
         this.timeoutWebhook[key] = setTimeout(() => {
@@ -120,7 +124,7 @@ class WhatsAppInstance {
                 .catch((_) => {
                     this.logger.error('Sending webhook post with error...')
                 })
-        }, 1500)
+        }, 2000)
     }
 
     async init() {
