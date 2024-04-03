@@ -32,6 +32,7 @@ server = app.listen(config.port, async () => {
 const exitHandler = () => {
     if (server) {
         server.close((err) => {
+            logger.fatal(`Server error: ${err}`)
             process.exit(err ? 1 : 0)
         })
     } else {
@@ -40,7 +41,7 @@ const exitHandler = () => {
 }
 
 const unexpectedErrorHandler = (error) => {
-    logger.error(error)
+    logger.fatal(error)
     exitHandler()
 }
 
@@ -48,16 +49,17 @@ process.on('uncaughtException', unexpectedErrorHandler)
 process.on('unhandledRejection', unexpectedErrorHandler)
 
 process.on('SIGTERM', () => {
-    logger.error('SIGTERM received')
+    logger.fatal('SIGTERM received')
     if (server) {
         server.close((err) => {
+            logger.fatal(`SIGTERM: ${err}`)
             process.exit(err ? 1 : 0)
         })
     }
 })
 
 process.on('exit', function (code) {
-    return logger.error('Server closed with code', code)
+    return logger.fatal('Server closed with code', code)
 })
 
 module.exports = server

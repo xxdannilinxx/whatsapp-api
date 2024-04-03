@@ -20,8 +20,14 @@ class WhatsAppInstance {
         level: config.log.level,
     })
     socketConfig = {
-        defaultQueryTimeoutMs: undefined,
+        version: [2, 2323, 4],
+        defaultQueryTimeoutMs: 0,
+        connectTimeoutMs: 120000,
+        keepAliveIntervalMs: 10000,
         printQRInTerminal: false,
+        syncFullHistory: false,
+        markOnlineOnConnect: false,
+        generateHighQualityLinkPreview: false,
         logger: false,
     }
     key = ''
