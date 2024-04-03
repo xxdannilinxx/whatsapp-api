@@ -4,14 +4,22 @@ const config = require('../../config/config')
 const { Session } = require('../class/session')
 
 exports.init = async (req, res) => {
-    const key = req.query.key
-    const webhook = !req.query.webhook ? false : req.query.webhook
-    const webhookUrl = !req.query.webhookUrl ? null : req.query.webhookUrl
-    const appUrl = config.appUrl || req.protocol + '://' + req.headers.host
-    const instance = new WhatsAppInstance(key, webhook, webhookUrl, true)
-    const data = await instance.init()
-    WhatsAppInstances[data.key] = instance
-    res.json({
+    try {
+        const { key } = req.query
+
+        if (key in WhatsAppInstances) {
+            throw new Error("Instance already exists")
+        }
+
+        const webhook = !req.query.webhook ? false : req.query.webhook
+        const webhookUrl = !req.query.webhookUrl ? null : req.query.webhookUrl
+        const appUrl = config.appUrl || req.protocol + '://' + req.headers.host
+        const instance = new WhatsAppInstance(key, webhook, webhookUrl, true)
+        const data = await instance.init()
+
+        WhatsAppInstances[data.key] = instance
+
+        return res.json({
         error: false,
         message: 'Initializing successfully',
         key: data.key,
@@ -24,126 +32,200 @@ exports.init = async (req, res) => {
         },
         browser: config.browser,
     })
+    } catch (error) {
+        return res.json({
+            error: true,
+            message: "Unable to start the instance",
+            errormsg: error ? error : null,
+        })
+    }
 }
 
 exports.qr = async (req, res) => {
     try {
-        const qrcode = await WhatsAppInstances[req.query.key]?.instance.qr
-        res.render('qrcode', {
+        let { key } = req.query
+        if (!key in WhatsAppInstances) {
+            throw new Error("Instance not exists")
+        }
+
+        const qrcode = await WhatsAppInstances[key]?.instance.qr
+        if (!qrcode) {
+            throw new Error("Check if you are already connected")
+        }
+
+        return res.render('qrcode', {
+            error: false,
+            message: "Qrcode generated successfully",
             qrcode: qrcode,
         })
-    } catch {
-        res.json({
-            qrcode: '',
+    } catch (error) {
+        return res.json({
+            error: true,
+            message: "Unable to generate Qrcode",
+            errormsg: error ? error : null,
+            qrcode: null,
         })
     }
 }
 
 exports.qrbase64 = async (req, res) => {
     try {
-        const qrcode = await WhatsAppInstances[req.query.key]?.instance.qr
-        res.json({
+        let { key } = req.query
+        if (!key in WhatsAppInstances) {
+            throw new Error("Instance not exists")
+        }
+
+        const qrcode = await WhatsAppInstances[key]?.instance.qr
+        if (!qrcode) {
+            throw new Error("Check if you are already connected")
+        }
+
+        return res.json({
             error: false,
-            message: 'QR Base64 fetched successfully',
+            message: "Qrcode64 generated successfully",
             qrcode: qrcode,
         })
-    } catch {
-        res.json({
-            qrcode: '',
+    } catch (error) {
+        return res.json({
+            error: true,
+            message: "Unable to generate Qrcode64",
+            errormsg: error ? error : null,
+            qrcode: null,
         })
     }
 }
 
 exports.info = async (req, res) => {
-    const instance = WhatsAppInstances[req.query.key]
-    let data
     try {
-        data = await instance.getInstanceDetail(req.query.key)
-    } catch (error) {
-        data = {}
-    }
-    return res.json({
-        error: false,
-        message: 'Instance fetched successfully',
-        instance_data: data,
-    })
-}
+        let { key } = req.query
+        if (!key in WhatsAppInstances) {
+            throw new Error("Instance not exists")
+        }
 
-exports.restore = async (req, res, next) => {
-    try {
-        const session = new Session()
-        let restoredSessions = await session.restoreSessions()
+        let data = await WhatsAppInstances[key].getInstanceDetail(key)
+
         return res.json({
             error: false,
-            message: 'All instances restored',
-            data: restoredSessions,
+            message: 'Instance fetched successfully',
+            instance_data: data,
         })
     } catch (error) {
-        next(error)
+        return res.json({
+            error: true,
+            message: "Unable to generate Qrcode64",
+            errormsg: error ? error : null,
+            data: {},
+        })
     }
 }
 
+// exports.restore = async (req, res, next) => {
+//     try {
+//         const session = new Session()
+//         let restoredSessions = await session.restoreSessions()
+
+//         return res.json({
+//             error: false,
+//             message: 'All instances restored',
+//             data: restoredSessions,
+//         })
+//     } catch (error) {
+//         next(error)
+//     }
+// }
+
 exports.logout = async (req, res) => {
-    let errormsg
     try {
-        await WhatsAppInstances[req.query.key].instance?.sock?.logout()
+        let { key } = req.query
+        if (!key in WhatsAppInstances) {
+            throw new Error("Instance not exists")
+        }
+
+        await WhatsAppInstances[key].instance?.sock?.logout()
+
+        return res.json({
+            error: false,
+            message: 'Logout successfull',
+        })
     } catch (error) {
-        errormsg = error
+        return res.json({
+            error: true,
+            message: 'Logout unsuccessfull',
+            errormsg: error ? error : null,
+        })
     }
-    return res.json({
-        error: false,
-        message: 'logout successfull',
-        errormsg: errormsg ? errormsg : null,
-    })
+
 }
 
 exports.delete = async (req, res) => {
-    let errormsg
     try {
-        await WhatsAppInstances[req.query.key].deleteInstance(req.query.key)
-
-        if (WhatsAppInstances[req.query.key].instance?.online === true) {
-            await WhatsAppInstances[req.query.key].instance?.sock?.logout()
+        let { key } = req.query
+        if (!key in WhatsAppInstances) {
+            throw new Error("Instance not exists")
         }
 
-        delete WhatsAppInstances[req.query.key]
-    } catch (error) {
-        errormsg = error
-    }
-    return res.json({
-        error: false,
-        message: 'Instance deleted successfully',
-        data: errormsg ? errormsg : null,
-    })
-}
+        await WhatsAppInstances[key].deleteInstance(key)
 
-exports.list = async (req, res) => {
-    if (req.query.active) {
-        let instance = []
-        const db = mongoClient.db('whatsapp-api')
-        const result = await db.listCollections().toArray()
-        result.forEach((collection) => {
-            instance.push(collection.name)
-        })
+        if (WhatsAppInstances[key].instance?.online === true) {
+            await WhatsAppInstances[key].instance?.sock?.logout()
+        }
+
+        delete WhatsAppInstances[key]
 
         return res.json({
             error: false,
-            message: 'All active instance',
-            data: instance,
+            message: 'Instance deleted successfully',
+        })
+    } catch (error) {
+        console.error(error)
+        return res.json({
+            error: true,
+            message: 'Instance deleted unsuccessfully',
+            errormsg: error ? error : null,
         })
     }
+}
 
-    let instance = Object.keys(WhatsAppInstances).map(async (key) =>
-        WhatsAppInstances[key].getInstanceDetail(key)
-    )
-    let data = await Promise.all(instance)
+exports.list = async (req, res) => {
+    try {
+        let instances = []
 
-    return res.json({
-        error: false,
-        message: 'All instance listed',
-        data: {
-            total: data.length,
-            instances: data,
-        },
-    })
+        if (req.query.active) {
+            const db = mongoClient.db('whatsapp-api')
+            const result = await db.listCollections().toArray()
+            result.forEach((collection) => {
+                instances.push(collection.name)
+            })
+
+            return res.json({
+                error: false,
+                message: 'All active instance',
+                data: {
+                    total: instances.length,
+                    instances: instances,
+                },
+            })
+        }
+
+        let objInstances = Object.keys(WhatsAppInstances).map(async (key) =>
+            WhatsAppInstances[key].getInstanceDetail(key)
+        )
+
+        instances = await Promise.all(objInstances)
+
+        return res.json({
+            error: false,
+            message: 'All instance listed',
+            data: {
+                total: instances.length,
+                instances: instances,
+            },
+        })
+    } catch (error) {
+        return res.json({
+            error: true,
+            message: 'All active instance not listed',
+            data: [],
+        })
+    }
 }

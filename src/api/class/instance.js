@@ -134,6 +134,7 @@ class WhatsAppInstance {
     }
 
     async init() {
+        this.logger.info(`Initializing ${this.key}...`)
         this.collection = mongoClient.db('whatsapp-api').collection(this.key)
         const { state, saveCreds } = await useMongoDBAuthState(this.collection)
         this.authState = { state: state, saveCreds: await saveCreds }
