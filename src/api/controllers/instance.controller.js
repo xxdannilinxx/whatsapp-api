@@ -1,6 +1,5 @@
 const { WhatsAppInstance } = require('../class/instance')
 const fs = require('fs')
-const path = require('path')
 const config = require('../../config/config')
 const { Session } = require('../class/session')
 
