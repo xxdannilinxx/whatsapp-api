@@ -311,9 +311,22 @@ class WhatsAppInstance {
             this.instance.messages.unshift(...m.messages)
 
             m.messages.map(async (msg) => {
-                if (!msg.message) return
+                if (!msg.message) {
+                    return
+                }
+
+                const isGroup = msg.key?.participant ? true : false
+                if (isGroup) {
+                    return
+                }
+
+                const isFromMe = msg.key?.fromMe === true
+                if (isFromMe) {
+                    return
+                }
 
                 let sendWebhook = false
+                let sendError = false
                 const messageType = Object.keys(msg.message)[0]
                 if (
                     [
@@ -354,38 +367,16 @@ class WhatsAppInstance {
                         }
 
                         break
-                    case 'videoMessage':
-                        if (config.webhookBase64) {
-                            webhookData['msgContent'] = await downloadMessage(
-                                msg.message.videoMessage,
-                                'video'
-                            )
-                        }
-
-                        break
-                    case 'audioMessage':
-                        if (config.webhookBase64) {
-                            webhookData['msgContent'] = await downloadMessage(
-                                msg.message.audioMessage,
-                                'audio'
-                            )
-                        }
-
-                        break
 
                     default:
+                        sendError = true
                         webhookData['msgContent'] = ''
                         break
                 }
 
-                const isGroup = m?.messages.filter(
-                    (message) => message.key?.participant
-                )
-                const isFromMe = m?.messages.filter(
-                    (message) => message.key?.fromMe === true
-                )
-                if (isGroup.length || isFromMe.length) {
-                    sendWebhook = false
+                if (sendError) {
+                    await WhatsAppInstances[this.key].sendTextMessage(msg.key.remoteJid, 'Esse tipo de mensagem ainda não conseguimos interpretar, mas você pode descrever por texto o que precisa.')
+                    return
                 }
 
                 if (
