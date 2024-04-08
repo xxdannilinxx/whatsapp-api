@@ -5,14 +5,18 @@ const { Session } = require('../class/session')
 
 exports.init = async (req, res) => {
     try {
-        const { key } = req.query
+        const { key, webhook, webhookUrl } = req.query
 
         if (key in WhatsAppInstances) {
-            throw new Error("Instance already exists")
+            delete WhatsAppInstances[key]
         }
 
-        const webhook = !req.query.webhook ? false : req.query.webhook
-        const webhookUrl = !req.query.webhookUrl ? null : req.query.webhookUrl
+        if (webhook) {
+            if (!new URL(webhookUrl)) {
+                throw new Error("URL incorrect")
+            }
+        }
+
         const appUrl = config.appUrl || req.protocol + '://' + req.headers.host
         const instance = new WhatsAppInstance(key, webhook, webhookUrl, true)
         const data = await instance.init()
