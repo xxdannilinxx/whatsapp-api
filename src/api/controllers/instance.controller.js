@@ -8,10 +8,16 @@ exports.init = async (req, res) => {
         const { key, webhook, webhookUrl } = req.query
 
         if (key in WhatsAppInstances) {
+            await WhatsAppInstances[key].deleteInstance(key)
+
+            if (WhatsAppInstances[key].instance?.online === true) {
+                await WhatsAppInstances[key].instance?.sock?.logout()
+            }
+
             delete WhatsAppInstances[key]
         }
 
-        if (webhook) {
+        if (webhook === 'true') {
             if (!new URL(webhookUrl)) {
                 throw new Error("URL incorrect")
             }
