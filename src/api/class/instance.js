@@ -106,6 +106,18 @@ class WhatsAppInstance {
         }
     }
 
+    async SendErrorMsgWebhook(id, key) {
+        if (!this.allowWebhook) {
+            return
+        }
+
+        if (!this.axiosInstance) {
+            return
+        }
+
+        await WhatsAppInstances[key].sendTextMessage(id, 'Esse tipo de mensagem ainda não conseguimos interpretar, mas você pode descrever por texto o que precisa ou como podemos ajudar.')
+    }
+
     async SendWebhook(type, body, key) {
         if (!this.allowWebhook) {
             return
@@ -349,9 +361,14 @@ class WhatsAppInstance {
 
                         break
 
+                    case 'messageContextInfo':
+                        sendWebhook = false
+                        break
+
                     case 'extendedTextMessage':
                     case 'locationMessage':
                     case 'liveLocationMessage':
+                    case 'messageContextInfo':
                         sendWebhook = true
 
                         break
@@ -374,16 +391,12 @@ class WhatsAppInstance {
                         break
                 }
 
-                if (sendError) {
-                    await WhatsAppInstances[this.key].sendTextMessage(msg.key.remoteJid, 'Esse tipo de mensagem ainda não conseguimos interpretar, mas você pode descrever por texto o que precisa.')
+                if (sendError && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
+                    await this.SendErrorMsgWebhook(msg.key.remoteJid, this.key)
                     return
                 }
 
-                if (
-                    sendWebhook &&
-                    [('all', 'messages', 'messages.upsert')].some((e) =>
-                        config.webhookAllowedEvents.includes(e)
-                    )
+                if (sendWebhook && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))
                 )
                     await this.SendWebhook('message', webhookData, this.key)
             })
