@@ -22,11 +22,11 @@ class WhatsAppInstance {
     socketConfig = {
         version: [2, 2323, 4],
         defaultQueryTimeoutMs: 0,
-        connectTimeoutMs: 120000,
+        connectTimeoutMs: 60000,
         keepAliveIntervalMs: 10000,
         printQRInTerminal: false,
-        syncFullHistory: false,
-        markOnlineOnConnect: false,
+        syncFullHistory: true,
+        markOnlineOnConnect: true,
         generateHighQualityLinkPreview: false,
         logger: false,
     }
@@ -115,7 +115,7 @@ class WhatsAppInstance {
             return
         }
 
-        await WhatsAppInstances[key].sendTextMessage(id, 'Esse tipo de mensagem ainda não conseguimos interpretar, mas você pode descrever por texto o que precisa ou como podemos ajudar.')
+        await WhatsAppInstances[key].sendTextMessage(id, 'Esse tipo de mensagem ainda não conseguimos interpretar, mas você pode descrever por texto o que precisa ou digitar *falar com atendente*.')
     }
 
     async SendWebhook(type, body, key) {
@@ -320,6 +320,7 @@ class WhatsAppInstance {
                 await sock.readMessages(unreadMessages)
             }
 
+
             this.instance.messages.unshift(...m.messages)
 
             m.messages.map(async (msg) => {
@@ -392,25 +393,32 @@ class WhatsAppInstance {
                 }
 
                 if (sendError && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
+
+                    await this.setStatus('composing', msg.key.remoteJid)
+
                     await this.SendErrorMsgWebhook(msg.key.remoteJid, this.key)
+
+                    await this.setStatus('paused', msg.key.remoteJid)
+
                     return
                 }
 
                 if (sendWebhook && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))
                 )
+
+                    await this.setStatus('composing', msg.key.remoteJid)
+
                     await this.SendWebhook('message', webhookData, this.key)
+
+                    await this.setStatus('paused', msg.key.remoteJid)
+
+                return
             })
         })
 
         sock?.ev.on('messages.update', async () => {})
 
         sock?.ws.on('CB:call', async () => {})
-
-        sock?.ev.on('groups.upsert', async () => {})
-
-        sock?.ev.on('groups.update', async () => {})
-
-        sock?.ev.on('group-participants.update', async () => {})
     }
 
     async deleteInstance(key) {

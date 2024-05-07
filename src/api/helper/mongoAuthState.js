@@ -59,28 +59,53 @@ const BufferJSON = {
 
 module.exports = useMongoDBAuthState = async (collection) => {
     const writeData = async (data, id) => {
-        if (Array.isArray(data)) {
-            data = data.shift()
+        try {
+            if (!id) {
+                return null;
+            }
+
+            if (Array.isArray(data)) {
+                for await (const item of data) {
+                    await writeData(item, id)
+                }
+
+                return true
+            }
+
+            await collection.replaceOne(
+                { _id: id },
+                JSON.parse(JSON.stringify(data, BufferJSON.replacer)),
+                { upsert: true }
+            )
+
+            return true
+        } catch (error) {
+            console.error(error)
+            return false
         }
-        return await collection.replaceOne(
-            { _id: id },
-            JSON.parse(JSON.stringify(data, BufferJSON.replacer)),
-            { upsert: true }
-        )
     }
+
     const readData = async (id) => {
         try {
             const data = JSON.stringify(await collection.findOne({ _id: id }))
             return JSON.parse(data, BufferJSON.reviver)
         } catch (error) {
+            console.error(error)
             return null
         }
     }
+
     const removeData = async (id) => {
         try {
             await collection.deleteOne({ _id: id })
-        } catch (_a) {}
+
+            return null;
+        } catch (error) {
+            console.error(error)
+            return null;
+        }
     }
+
     const creds = (await readData('creds')) || (0, initAuthCreds)()
     return {
         state: {
