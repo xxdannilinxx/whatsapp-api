@@ -26,7 +26,6 @@ class WhatsAppInstance {
         keepAliveIntervalMs: 10000,
         printQRInTerminal: false,
         syncFullHistory: true,
-        markOnlineOnConnect: true,
         generateHighQualityLinkPreview: false,
         logger: false,
     }
