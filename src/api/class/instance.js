@@ -397,7 +397,7 @@ class WhatsAppInstance {
 
                     await this.SendErrorMsgWebhook(msg.key.remoteJid, this.key)
 
-                    await this.setStatus('paused', msg.key.remoteJid)
+                    setTimeout(async () => await this.setStatus('paused', msg.key.remoteJid), 1500);
 
                     return
                 }
@@ -409,7 +409,7 @@ class WhatsAppInstance {
 
                     await this.SendWebhook('message', webhookData, this.key)
 
-                    await this.setStatus('paused', msg.key.remoteJid)
+                    setTimeout(async () => await this.setStatus('paused', msg.key.remoteJid), 1500);
 
                 return
             })
