@@ -354,26 +354,25 @@ class WhatsAppInstance {
                 }
 
                 switch (messageType) {
-                    case 'conversation':
+                    case 'conversation': // message
                         sendWebhook = true
 
                         webhookData['text'] = m
 
                         break
 
-                    case 'messageContextInfo':
-                        sendWebhook = false
-                        break
+                    case 'messageContextInfo': // reaction
+                    case 'stickerMessage': // sticker
+                        return
 
-                    case 'extendedTextMessage':
-                    case 'locationMessage':
-                    case 'liveLocationMessage':
-                    case 'messageContextInfo':
+                    case 'extendedTextMessage': // reply
+                    case 'locationMessage': // localização
+                    case 'liveLocationMessage': // localização
                         sendWebhook = true
 
                         break
 
-                    case 'imageMessage':
+                    case 'imageMessage': // imagem
                         sendWebhook = true
 
                         if (config.webhookBase64) {
