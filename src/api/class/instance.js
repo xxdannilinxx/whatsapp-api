@@ -141,7 +141,7 @@ class WhatsAppInstance {
                 .catch((_) => {
                     this.logger.error('Sending webhook post with error...')
                 })
-        }, 2000)
+        }, 1000)
     }
 
     async init() {
@@ -304,9 +304,18 @@ class WhatsAppInstance {
 
         // on new mssage
         sock?.ev.on('messages.upsert', async (m) => {
-            if (m.type === 'prepend')
+            if (m.type === 'prepend') {
                 this.instance.messages.unshift(...m.messages)
-            if (m.type !== 'notify') return
+            }
+            if (m.type !== 'notify') {
+                return
+            }
+            if (!this.allowWebhook) {
+                return
+            }
+            if (!this.axiosInstance) {
+                return
+            }
 
             if (config.markMessagesRead) {
                 const unreadMessages = m.messages.map((msg) => {
@@ -318,7 +327,6 @@ class WhatsAppInstance {
                 })
                 await sock.readMessages(unreadMessages)
             }
-
 
             this.instance.messages.unshift(...m.messages)
 
@@ -390,27 +398,17 @@ class WhatsAppInstance {
                         break
                 }
 
+                await this.setStatus('composing', msg.key.remoteJid)
+
                 if (sendError && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
-
-                    await this.setStatus('composing', msg.key.remoteJid)
-
                     await this.SendErrorMsgWebhook(msg.key.remoteJid, this.key)
-
-                    setTimeout(async () => await this.setStatus('paused', msg.key.remoteJid), 1500);
-
-                    return
                 }
 
-                if (sendWebhook && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))
-                )
-
-                    await this.setStatus('composing', msg.key.remoteJid)
-
+                if (sendWebhook && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
                     await this.SendWebhook('message', webhookData, this.key)
+                }
 
-                    setTimeout(async () => await this.setStatus('paused', msg.key.remoteJid), 1500);
-
-                return
+                setTimeout(async () => await this.setStatus('paused', msg.key.remoteJid), 1500);
             })
         })
 
