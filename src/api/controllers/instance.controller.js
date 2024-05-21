@@ -122,7 +122,7 @@ exports.info = async (req, res) => {
     } catch (error) {
         return res.json({
             error: true,
-            message: "Unable to generate Qrcode64",
+            message: "Unable to fetch instance",
             errormsg: error ? error : null,
             data: {},
         })
