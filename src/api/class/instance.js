@@ -44,7 +44,6 @@ class WhatsAppInstance {
     }
 
     axiosInstance
-    timeoutWebhook = {}
 
     constructor(key, allowWebhook, webhook, init) {
         this.webhook = webhook
@@ -55,8 +54,6 @@ class WhatsAppInstance {
 
         this.logger = this.logger.child({ instance: this.key })
         this.socketConfig.logger = this.logger
-
-        this.timeoutWebhook[this.key] = null
 
         this.initWebhookUrl(init).then((webhookUrl) => {
             // if exists in collectiom force use webhook
@@ -105,7 +102,7 @@ class WhatsAppInstance {
         }
     }
 
-    async SendErrorMsgWebhook(id, key) {
+    async SendErrorMsgWebhook(key, userKey) {
         if (!this.allowWebhook) {
             return
         }
@@ -114,10 +111,13 @@ class WhatsAppInstance {
             return
         }
 
-        await WhatsAppInstances[key].sendTextMessage(id, 'Esse tipo de mensagem ainda não conseguimos interpretar, mas você pode descrever por texto o que precisa ou digitar *falar com atendente*.')
+        await this.setStatus('composing', userKey)
+        setTimeout(async () => await this.setStatus('paused', userKey), 1500)
+
+        await WhatsAppInstances[key].sendTextMessage(userKey, 'Esse tipo de mensagem ainda não conseguimos interpretar, mas você pode descrever por texto o que precisa ou digitar *falar com atendente*.')
     }
 
-    async SendWebhook(type, body, key) {
+    async SendWebhook(type, body, key, userKey) {
         if (!this.allowWebhook) {
             return
         }
@@ -126,22 +126,23 @@ class WhatsAppInstance {
             return
         }
 
-        clearTimeout(this.timeoutWebhook[key])
+        this.axiosInstance
+            .post('', {
+                type,
+                body,
+                instanceKey: key,
+            })
+            .then(async (_) => {
+                if (userKey) {
+                    await this.setStatus('composing', userKey)
+                    setTimeout(async () => await this.setStatus('paused', userKey), 1500)
+                }
 
-        this.timeoutWebhook[key] = setTimeout(() => {
-            this.axiosInstance
-                .post('', {
-                    type,
-                    body,
-                    instanceKey: key,
-                })
-                .then((_) => {
-                    this.logger.info('Sending webhook post with success...')
-                })
-                .catch((_) => {
-                    this.logger.error('Sending webhook post with error...')
-                })
-        }, 1000)
+                this.logger.info('Sending webhook post with success...')
+            })
+            .catch(async (_) => {
+                this.logger.error('Sending webhook post with error...')
+            })
     }
 
     async init() {
@@ -398,17 +399,13 @@ class WhatsAppInstance {
                         break
                 }
 
-                await this.setStatus('composing', msg.key.remoteJid)
-
                 if (sendError && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
-                    await this.SendErrorMsgWebhook(msg.key.remoteJid, this.key)
+                    await this.SendErrorMsgWebhook(this.key, msg.key?.remoteJid)
                 }
 
                 if (sendWebhook && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
-                    await this.SendWebhook('message', webhookData, this.key)
+                    await this.SendWebhook('message', webhookData, this.key, msg.key?.remoteJid)
                 }
-
-                setTimeout(async () => await this.setStatus('paused', msg.key.remoteJid), 1500);
             })
         })
 
