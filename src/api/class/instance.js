@@ -33,6 +33,10 @@ class WhatsAppInstance {
     authState
     allowWebhook = undefined
     webhook = undefined
+    webhookOptions = {
+        robo: false,
+        ia: false,
+    }
 
     instance = {
         key: this.key,
@@ -64,6 +68,17 @@ class WhatsAppInstance {
                     baseURL: webhookUrl,
                     timeout: 20000,
                 })
+                /**
+                 *
+                 */
+                const urlParams = new URLSearchParams(webhookUrl);
+                this.webhookOptions = {
+                    robo: (urlParams.get('robo') === 'true'),
+                    ia: (urlParams.get('ia') === 'true'),
+                }
+                /**
+                 *
+                 */
                 axiosRetry(this.axiosInstance, {
                     retries: 2,
                     retryDelay: (retryCount) => {
@@ -112,9 +127,10 @@ class WhatsAppInstance {
         }
 
         await this.setStatus('composing', userKey)
-        setTimeout(async () => await this.setStatus('paused', userKey), 1500)
 
         await WhatsAppInstances[key].sendTextMessage(userKey, 'Esse tipo de mensagem ainda não conseguimos interpretar, mas você pode descrever por texto o que precisa ou digitar *falar com atendente*.')
+
+        setTimeout(async () => await this.setStatus('paused', userKey), 1500)
     }
 
     async SendWebhook(type, body, key, userKey) {
@@ -133,7 +149,7 @@ class WhatsAppInstance {
                 instanceKey: key,
             })
             .then(async (_) => {
-                if (userKey) {
+                if (this.webhookOptions.ia && userKey) {
                     await this.setStatus('composing', userKey)
                     setTimeout(async () => await this.setStatus('paused', userKey), 1500)
                 }
@@ -399,7 +415,7 @@ class WhatsAppInstance {
                         break
                 }
 
-                if (sendError && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
+                if (this.webhookOptions.ia && sendError && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
                     await this.SendErrorMsgWebhook(this.key, msg.key?.remoteJid)
                 }
 
