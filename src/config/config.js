@@ -45,6 +45,8 @@ const WEBHOOK_ALLOWED_EVENTS = process.env.WEBHOOK_ALLOWED_EVENTS?.split(
 const MARK_MESSAGES_READ = !!(
     process.env.MARK_MESSAGES_READ && process.env.MARK_MESSAGES_READ === 'true'
 )
+// Others
+const DEEPGRAM_TOKEN = process.env.DEEPGRAM_TOKEN || false
 
 module.exports = {
     port: PORT,
@@ -77,4 +79,5 @@ module.exports = {
     protectRoutes: PROTECT_ROUTES,
     markMessagesRead: MARK_MESSAGES_READ,
     webhookAllowedEvents: WEBHOOK_ALLOWED_EVENTS,
+    deepGramToken: DEEPGRAM_TOKEN,
 }

@@ -173,6 +173,41 @@ class WhatsAppInstance {
         return this
     }
 
+    async validateTranscript(audio) {
+        /**
+         * https://console.deepgram.com/project/686e5a23-54c3-43cc-bc72-9516dd967494
+         * xxdannilinxx@gmail.com
+         */
+        try {
+            if (!config.deepGramToken) {
+                throw new Error('Deepgram token is not set')
+            }
+
+            audio = await downloadMessage(audio, 'audio')
+            audio = Buffer.from(audio, 'base64')
+
+            const { createClient } = require("@deepgram/sdk");
+            const deepgram = createClient(config.deepGramToken);
+
+            const { result, error } = await deepgram.listen.prerecorded.transcribeFile(audio,
+                {
+                    model: "general",
+                    language: "pt",
+                    punctuate: true,
+                }
+            );
+
+            if (error) {
+                throw new Error(error)
+            }
+
+            return result.results?.channels[0]?.alternatives[0]?.transcript;
+        } catch (e) {
+            this.logger.error(e)
+            return false
+        }
+    }
+
     setHandler() {
         const sock = this.instance.sock
         // on credentials update save state
@@ -409,13 +444,25 @@ class WhatsAppInstance {
 
                         break
 
+                    case 'audioMessage':
+                        let audio = await this.validateTranscript(msg.message.audioMessage)
+
+                        if (audio) {
+                            sendWebhook = true
+                            webhookData['msgContent'] = audio
+                        } else {
+                            sendError = true
+                        }
+
+                        break;
+
                     default:
                         sendError = true
                         webhookData['msgContent'] = ''
                         break
                 }
 
-                if (this.webhookOptions.ia && sendError && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
+                if (sendError && [('all', 'messages', 'messages.upsert')].some((e) => config.webhookAllowedEvents.includes(e))) {
                     await this.SendErrorMsgWebhook(this.key, msg.key?.remoteJid)
                 }
 

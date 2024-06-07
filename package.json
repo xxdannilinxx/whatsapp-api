@@ -30,6 +30,7 @@
     "author": "Mohd Salman Ansari <salman0ansariii@gmail.com>",
     "license": "MIT",
     "dependencies": {
+        "@deepgram/sdk": "^3.3.4",
         "@whiskeysockets/baileys": "6.6.0",
         "axios": "^1.1.3",
         "axios-retry": "^3.9.1",
